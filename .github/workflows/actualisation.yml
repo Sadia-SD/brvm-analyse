@@ -1,3 +1,4 @@
+
 name: Actualisation BRVM
 
 on:
@@ -27,7 +28,7 @@ jobs:
       - name: Lancer actualisation BRVM
         run: python actualiser_brvm.py
 
-      - name: Sauvegarder les nouvelles donnees
+      - name: Sauvegarder les nouvelles donnees sur GitHub
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -38,3 +39,51 @@ jobs:
           else
             echo "Aucune nouvelle donnee a sauvegarder."
           fi
+
+      - name: Envoyer les CSV vers SharePoint
+        env:
+          POWER_AUTOMATE_URL: ${{ secrets.POWER_AUTOMATE_URL }}
+        run: |
+          python - <<'PY'
+          import os
+          import base64
+          from pathlib import Path
+          import requests
+
+          url = os.environ.get("POWER_AUTOMATE_URL")
+
+          if not url:
+              raise RuntimeError("Le secret POWER_AUTOMATE_URL est absent.")
+
+          racine = Path("donnees_brvm")
+
+          for dossier in ("brutes", "propres", "historique"):
+              chemin = racine / dossier
+
+              if not chemin.exists():
+                  continue
+
+              for fichier in sorted(chemin.glob("*.csv")):
+                  payload = {
+                      "fileName": fichier.name,
+                      "folder": dossier,
+                      "contentBase64": base64.b64encode(
+                          fichier.read_bytes()
+                      ).decode("ascii")
+                  }
+
+                  response = requests.post(
+                      url,
+                      json=payload,
+                      timeout=120
+                  )
+
+                  print(
+                      f"{dossier}/{fichier.name} : "
+                      f"HTTP {response.status_code}"
+                  )
+
+                  response.raise_for_status()
+
+          print("Transfert SharePoint terminé.")
+          PY
