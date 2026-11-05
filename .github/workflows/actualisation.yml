@@ -4,7 +4,7 @@ name: Actualisation BRVM
 on:
   workflow_dispatch:
   schedule:
-    - cron: '45 12 * * 1-5'
+    - cron: '00 14 * * 1-5'
 
 permissions:
   contents: write
